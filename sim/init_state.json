@@ -1,0 +1,21 @@
+{
+    "genesisBlock": {
+        "index": 0,
+        "timestamp": 0,
+        "transactions": [],
+        "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "merkle_root": "genesis",
+        "nonce": 0,
+        "miner_address": "genesis"
+    },
+    "initialBalances": {
+        "addr1": 100,
+        "addr2": 50,
+        "addr3": 75
+    },
+    "network": {
+        "difficulty": 4,
+        "blockReward": 10,
+        "targetBlockTime": 600
+    }
+}

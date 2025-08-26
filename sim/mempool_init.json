@@ -1,0 +1,28 @@
+{
+    "pendingTransactions": [
+        {
+            "sender": "addr1",
+            "recipient": "addr2",
+            "amount": 10,
+            "nonce": 1,
+            "base_fee": 2,
+            "tip": 3
+        },
+        {
+            "sender": "addr2",
+            "recipient": "addr3",
+            "amount": 5,
+            "nonce": 1,
+            "base_fee": 2,
+            "tip": 5
+        },
+        {
+            "sender": "addr3",
+            "recipient": "addr1",
+            "amount": 7,
+            "nonce": 1,
+            "base_fee": 2,
+            "tip": 4
+        }
+    ]
+}
