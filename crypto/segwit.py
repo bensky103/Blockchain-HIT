@@ -1,40 +1,20 @@
-"""
-Segregated Witness implementation.
-"""
+# NOT FOR PRODUCTION
+# This is a simplified implementation for educational purposes.
 
-class SegWit:
-    """
-    Implements Segregated Witness functionality.
-    
-    SegWit separates transaction signatures from transaction data,
-    which helps with scalability and addresses transaction malleability.
-    """
-    
-    @staticmethod
-    def create_segwit_transaction(inputs, outputs):
-        """
-        Create a SegWit transaction.
-        
-        Args:
-            inputs (list): Transaction inputs.
-            outputs (list): Transaction outputs.
-            
-        Returns:
-            dict: SegWit transaction data.
-        """
-        # TODO: Implement SegWit transaction creation
-        pass
-    
-    @staticmethod
-    def verify_segwit_transaction(transaction):
-        """
-        Verify a SegWit transaction.
-        
-        Args:
-            transaction (dict): SegWit transaction data.
-            
-        Returns:
-            bool: Whether the transaction is valid.
-        """
-        # TODO: Implement SegWit transaction verification
-        pass
+from typing import Dict, Optional
+
+# A simple in-memory store for signatures, mapping tx_id to signature.
+# In a real system, this would be a persistent, distributed database.
+SIGNATURE_STORE: Dict[str, bytes] = {}
+
+def store_signature(tx_id: str, signature: bytes):
+    """Stores a signature in the external store."""
+    SIGNATURE_STORE[tx_id] = signature
+
+def get_signature(tx_id: str) -> Optional[bytes]:
+    """Retrieves a signature from the external store."""
+    return SIGNATURE_STORE.get(tx_id)
+
+def clear_store():
+    """Clears the signature store (for testing)."""
+    SIGNATURE_STORE.clear()

@@ -1,75 +1,43 @@
-"""
-Cryptographic key management.
-"""
+# NOT FOR PRODUCTION
+# This is a simplified implementation for educational purposes.
 
-class KeyPair:
-    """
-    Represents a cryptographic key pair.
-    
-    Attributes:
-        private_key: The private key.
-        public_key: The public key.
-        address (str): The address derived from the public key.
-    """
-    
-    def __init__(self):
-        """Initialize a new key pair."""
-        self.private_key = None
-        self.public_key = None
-        self.address = None
-    
-    def generate(self):
-        """
-        Generate a new key pair.
-        
-        Returns:
-            tuple: (private_key, public_key, address)
-        """
-        # TODO: Implement key generation
-        pass
-    
-    def from_private_key(self, private_key):
-        """
-        Initialize from an existing private key.
-        
-        Args:
-            private_key: The private key.
-            
-        Returns:
-            bool: Whether the key was loaded successfully.
-        """
-        # TODO: Implement key loading
-        pass
-    
-    def derive_address(self):
-        """
-        Derive an address from the public key.
-        
-        Returns:
-            str: The derived address.
-        """
-        # TODO: Implement address derivation
-        pass
-    
-    def export_private_key(self, password=None):
-        """
-        Export the private key, optionally encrypted.
-        
-        Args:
-            password (str, optional): Password for encryption.
-            
-        Returns:
-            str: Exported private key.
-        """
-        # TODO: Implement key export
-        pass
-    
-    def export_public_key(self):
-        """
-        Export the public key.
-        
-        Returns:
-            str: Exported public key.
-        """
-        # TODO: Implement public key export
-        pass
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.backends import default_backend
+
+def generate_key_pair():
+    """Generates a new ECDSA key pair."""
+    private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+def serialize_public_key(public_key):
+    """Serializes a public key to a PEM-encoded string."""
+    return public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
+
+def serialize_private_key(private_key):
+    """Serializes a private key to a PEM-encoded string."""
+    return private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    ).decode('utf-8')
+
+def deserialize_public_key(pem_data):
+    """Deserializes a public key from a PEM-encoded string."""
+    return serialization.load_pem_public_key(pem_data.encode('utf-8'), default_backend())
+
+def deserialize_private_key(hex_data):
+    """Deserializes a private key from a hex string."""
+    private_value = int(hex_data, 16)
+    return ec.derive_private_key(private_value, ec.SECP256R1(), default_backend())
+
+def get_address_from_pubkey(public_key):
+    """Derives a simplified address from the public key."""
+    pem = serialize_public_key(public_key)
+    h = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    h.update(pem.encode('utf-8'))
+    return h.finalize().hex()[:20]

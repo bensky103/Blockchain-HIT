@@ -8,6 +8,7 @@ from ..core.block import Block
 from ..core.chain import Blockchain
 from ..core.fees import BLOCK_REWARD, BASE_FEE, TIP
 from ..node.mempool import Mempool
+from ..crypto import keys
 
 class TestFeesAndMempool(unittest.TestCase):
     """Tests for fee policies and mempool functionality."""
@@ -109,8 +110,13 @@ class TestFeesAndMempool(unittest.TestCase):
     def test_apply_block_with_fees(self):
         """Test applying a block with transaction fees."""
         # Create transactions
+        priv_key_alice, _ = keys.generate_key_pair()
+        priv_key_bob, _ = keys.generate_key_pair()
+
         tx1 = Tx(sender="alice", recipient="bob", amount=50, nonce=1)
+        tx1.sign(priv_key_alice)
         tx2 = Tx(sender="bob", recipient="charlie", amount=25, nonce=1)
+        tx2.sign(priv_key_bob)
         
         # Create a block with these transactions
         latest_block = self.blockchain.get_latest_block()
@@ -149,11 +155,13 @@ class TestFeesAndMempool(unittest.TestCase):
         miner_addr = "miner"
         
         # Add transactions to mempool
+        priv_key_alice, _ = keys.generate_key_pair()
+        priv_key_bob, _ = keys.generate_key_pair()
         txs = [
-            Tx(sender="alice", recipient="bob", amount=10, nonce=1),
-            Tx(sender="alice", recipient="bob", amount=20, nonce=2),
-            Tx(sender="alice", recipient="charlie", amount=30, nonce=3),
-            Tx(sender="bob", recipient="charlie", amount=15, nonce=1),
+            Tx(sender="alice", recipient="bob", amount=10, nonce=1, private_key=priv_key_alice),
+            Tx(sender="alice", recipient="bob", amount=20, nonce=2, private_key=priv_key_alice),
+            Tx(sender="alice", recipient="charlie", amount=30, nonce=3, private_key=priv_key_alice),
+            Tx(sender="bob", recipient="charlie", amount=15, nonce=1, private_key=priv_key_bob),
         ]
         
         for tx in txs:
@@ -173,7 +181,7 @@ class TestFeesAndMempool(unittest.TestCase):
                 txs=batch
             )
             
-            self.blockchain.apply_block(block, miner_addr)
+            self.blockchain.add_block(block, miner_addr)
         
         # Calculate expected results
         expected_burn = BASE_FEE * 4  # 4 transactions

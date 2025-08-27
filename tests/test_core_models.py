@@ -11,9 +11,9 @@ import pytest
 # Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from core.tx import Tx
-from core.block import Block, BlockHeader
-from core.chain import Blockchain
+from blockchain_lab.core.tx import Tx
+from blockchain_lab.core.block import Block, BlockHeader
+from blockchain_lab.core.chain import Blockchain
 
 
 class TestTransaction:

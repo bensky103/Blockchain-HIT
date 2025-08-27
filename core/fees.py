@@ -2,13 +2,38 @@
 Fee policy and calculation helpers for the blockchain.
 """
 
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 from .tx import Tx
 
 # Constants
 BLOCK_REWARD = 50  # Reward for mining a block
 BASE_FEE = 2       # Base fee that gets burned (EIP-1559 style)
 TIP = 3            # Default tip/priority fee for miners
+
+def calculate_mining_reward(tx_batch: List[Tx]) -> int:
+    """
+    Calculate the total mining reward for a block.
+    
+    Args:
+        tx_batch (List[Tx]): List of transactions in the block.
+        
+    Returns:
+        int: Total reward (block reward + total tips).
+    """
+    total_tips = sum(tx.tip for tx in tx_batch)
+    return BLOCK_REWARD + total_tips
+
+def calculate_burned_fees(tx_batch: List[Tx]) -> int:
+    """
+    Calculate the total fees burned in a block.
+    
+    Args:
+        tx_batch (List[Tx]): List of transactions in the block.
+        
+    Returns:
+        int: Total base fees burned.
+    """
+    return sum(tx.base_fee for tx in tx_batch)
 
 def calculate_transaction_fees(tx: Tx) -> Tuple[int, int]:
     """
@@ -33,6 +58,32 @@ def calculate_transaction_cost(tx: Tx) -> int:
         int: Total cost to the sender (amount + base_fee + tip)
     """
     return tx.amount + tx.base_fee + tx.tip
+
+def suggest_tip(mempool_size: int) -> int:
+    """Suggest a dynamic tip based on current mempool congestion.
+
+    Very small illustrative heuristic:
+      - 0 tx  -> minimum 1
+      - 1-4   -> 2
+      - 5-15  -> 3
+      - 16-30 -> 4
+      - >30   -> 5
+
+    Args:
+        mempool_size (int): Current number of pending transactions.
+
+    Returns:
+        int: Suggested priority tip.
+    """
+    if mempool_size <= 0:
+        return 1
+    if mempool_size <= 4:
+        return 2
+    if mempool_size <= 15:
+        return 3
+    if mempool_size <= 30:
+        return 4
+    return 5
 
 def apply_transaction_fees(
     balances: Dict[str, int], 

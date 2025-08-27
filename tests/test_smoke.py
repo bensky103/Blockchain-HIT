@@ -10,8 +10,8 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import basic modules to ensure they're working
-from core.block import Block
-from core.chain import Blockchain
+from blockchain_lab.core.block import Block
+from blockchain_lab.core.chain import Blockchain
 
 def test_project_structure():
     """Verify that the project structure is set up correctly."""

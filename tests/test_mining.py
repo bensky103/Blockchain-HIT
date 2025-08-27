@@ -9,6 +9,7 @@ from ..core.chain import Blockchain
 from ..core.fees import BLOCK_REWARD, BASE_FEE, TIP
 from ..node.mempool import Mempool
 from ..node.mining import build_candidate_block, mine_block
+from ..crypto import keys
 
 class TestMining(unittest.TestCase):
     """Tests for mining functionality."""
@@ -29,12 +30,15 @@ class TestMining(unittest.TestCase):
         self.mempool = Mempool(self.blockchain.balances)
         
         # Add some transactions to the mempool
+        priv_key_alice, _ = keys.generate_key_pair()
+        priv_key_bob, _ = keys.generate_key_pair()
+        priv_key_charlie, _ = keys.generate_key_pair()
         txs = [
-            Tx(sender="alice", recipient="bob", amount=10, nonce=1),
-            Tx(sender="alice", recipient="bob", amount=20, nonce=2),
-            Tx(sender="bob", recipient="charlie", amount=5, nonce=1),
-            Tx(sender="bob", recipient="alice", amount=15, nonce=2),
-            Tx(sender="charlie", recipient="alice", amount=10, nonce=1),
+            Tx(sender="alice", recipient="bob", amount=10, nonce=1, private_key=priv_key_alice),
+            Tx(sender="alice", recipient="bob", amount=20, nonce=2, private_key=priv_key_alice),
+            Tx(sender="bob", recipient="charlie", amount=5, nonce=1, private_key=priv_key_bob),
+            Tx(sender="bob", recipient="alice", amount=15, nonce=2, private_key=priv_key_bob),
+            Tx(sender="charlie", recipient="alice", amount=10, nonce=1, private_key=priv_key_charlie),
         ]
         
         for tx in txs:

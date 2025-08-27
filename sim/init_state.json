@@ -1,21 +1,24 @@
-{
-    "genesisBlock": {
-        "index": 0,
-        "timestamp": 0,
-        "transactions": [],
-        "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-        "merkle_root": "genesis",
-        "nonce": 0,
-        "miner_address": "genesis"
-    },
-    "initialBalances": {
-        "addr1": 100,
-        "addr2": 50,
-        "addr3": 75
-    },
-    "network": {
-        "difficulty": 4,
-        "blockReward": 10,
-        "targetBlockTime": 600
-    }
+﻿{
+    "wallets":  {
+                    "Alice":  {
+                                  "public_key":  "048683235a02c80e163da9999b0de877548ea160706ccaac37146b1962601073328683235a02c80e163da9999b0de877548ea160706ccaac37146b196260107332",
+                                  "address":  "048683235a02c80e163da9999b0de877548ea160706ccaac37146b1962601073328683235a02c80e163da9999b0de877548ea160706ccaac37146b196260107332",
+                                  "private_key":  "8683235a02c80e163da9999b0de877548ea160706ccaac37146b196260107332"
+                              },
+                    "Charlie":  {
+                                    "public_key":  "047c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e0347c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e034",
+                                    "address":  "047c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e0347c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e034",
+                                    "private_key":  "7c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e034"
+                                },
+                    "Bob":  {
+                                "public_key":  "045d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b5d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b",
+                                "address":  "045d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b5d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b",
+                                "private_key":  "5d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b"
+                            }
+                },
+    "balances":  {
+                     "045d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b5d1bbf2cae0bd4b6f66f7b320b5981b047d930a77318fe6b376b4fc2859a970b":  300,
+                     "047c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e0347c7c103926aeefddbb8e66a256cdb3e5834aca144324e5482a11e5dd9e82e034":  300,
+                     "048683235a02c80e163da9999b0de877548ea160706ccaac37146b1962601073328683235a02c80e163da9999b0de877548ea160706ccaac37146b196260107332":  300
+                 }
 }

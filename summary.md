@@ -67,19 +67,31 @@ This is a mini educational blockchain project designed to demonstrate the core c
   - No false negatives by design, proof validation for all positive matches
 - Created comprehensive tests for Bloom filter and light wallet functionality
 
+## Completed Work (simulation + outputs)
+- Created `sim/init_state.json` with initial wallet balances and `sim/mempool_init.json` with a set of transactions.
+- Added a `simulate` command to `cli/main.py` to run a multi-block mining simulation and print a detailed report of balances, network totals, and a mining log.
+- Added a `light-check` command to `cli/main.py` for a light wallet to verify transaction presence using Bloom filters and Merkle proofs.
+- Updated `node/full_node.py` to maintain an in-memory signature store, supporting the SegWit-lite implementation.
+- Added an end-to-end test (`tests/test_simulation.py`) to ensure the consistency of fees, burned amounts, and rewards across multiple blocks.
+
+## Completed Work (delivery finalized)
+- Finalized all project components and documentation.
+- Delivered a fully functional blockchain simulation with the following features:
+  - Core blockchain models (Tx, Block, Blockchain)
+  - Fee rules and mempool integration
+  - Mining and validation
+  - Merkle tree and proofs
+  - Bloom filter and light wallet
+  - SegWit-lite
+  - Simulation and outputs
+- Created comprehensive documentation in `README.md` and `slides-outline.md`.
+
 ## Open TODOs / Next Steps
-- Implement simplified SegWit functionality
-- Create simulation environment for testing and demonstration
+- Polish documentation in `README.md` and `summary.md`.
+- Create presentation slides outline.
 
-## Known Issues / Risks
-- Project is currently a basic implementation with limited functionality
-- No signature verification implemented yet
-- Implementations are educational/simplified and not suitable for production use
-- Many TODOs throughout the codebase that need implementation
-- Security considerations for a real blockchain are not fully addressed
+## Known Issues / Risks (updated)
+- The `light-check` command currently relies on a simulated node state rather than a live one.
+- The simulation environment is self-contained and does not yet support peer-to-peer interactions.
+- No advanced consensus mechanisms (e.g., PoS, BFT) are implemented.
 
-## Decisions Made
-- Fee structure constants: BLOCK_REWARD=50, BASE_FEE=2, TIP=3
-- FIFO ordering for mempool transactions for simplicity
-- Mempool capacity management using batch extraction (get_batch method)
-- Simple balance tracking with burn/mine counters for consistency checks

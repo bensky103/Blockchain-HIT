@@ -1,0 +1,180 @@
+סטטוס דרישות ו תוכנית פעולה להגשת הפרויקט
+==========================================
+מסמך זה מרכז:
+1. מיפוי מפורט של כל הדרישות (מתוך DEMANDS.txt) ליישום בקוד הקיים.
+2. סטטוס (בוצע / חלקי / חסר) + הערות ובאגים ידועים.
+3. משימות הכנה למצגת, דמו והגשה.
+4. הוראות הרצה מפורטות (סקריפטים / בדיקות / דמו ידני).
+5. הצעות שיפור אחרונות לפני הגשה (Nice to have).
+
+--------------------------------------------------
+A. חלק המצגת (20%)
+--------------------------------------------------
+נדרש:
+1. שקף 1:
+   - שמות המבצעים.
+   - רשימת מטלות שבוצעו + באגים ידועים (אם יש).
+   - רשימת מטלות שלא בוצעו.
+2. שקף 2: הוראות התקנה והרצה.
+3. שאר השקפים: לכל סעיף (a..h בחלק B) – קוד רלוונטי + הסבר קצר (מה עושה / למה חשוב) + צילום/פלט דוגמה.
+4. שקף "לוג הדגמה": תרשים/רצף כרייה ואימות (Flow):
+   - טעינת balances ראשוניים (300 לכל 3 ארנקים).
+   - טעינת 30 עסקאות ל-mempool.
+   - כריית בלוק עם עד 4 עסקאות → החלת עמלות → שריפה → תגמול.
+   - שימוש בארנק קל לבדוק הוכחת מרקל לעסקה קיימת ולעסקה לא קיימת.
+5. להדגים 3 ארנקים (Alice / Bob / Charlie) על שרת אחד.
+
+סטטוס: טרם נוצרה מצגת – נדרש להכין (משימה בהמשך).
+
+--------------------------------------------------
+B. דרישות מימוש (80%)
+--------------------------------------------------
+Legend סטטוס: [OK]=מומש | [PARTIAL]=חלקי | [MISSING]=חסר
+
+(a) Bloom Filter ספרייה + הדגמת חיפוש
+    - קוד: blockchain_lab/crypto/bloom.py  (BloomFilter)
+    - שימוש: FullNode.build_bloom_filter + node.might_contain_tx
+    - טסט: tests/test_bloom_light_wallet.py::test_bloom_filter / test_full_node_bloom
+    סטטוס: [OK]
+
+(b) Merkle Tree ספרייה בצד ה-Full Node
+    - קוד: blockchain_lab/crypto/merkle.py (root, proof, verify)
+    - שימוש אמיתי: mining.build_candidate_block מחשב merkle_root אמיתי מהעסקאות
+    - הערה: Block.create_header / create_genesis_block יוצרים merkle_root דמה (hash("merkle_{index}") / hash("genesis")) – חשוב להסביר במצגת ולהראות שבכרייה בפועל משתמשים בפונקציה הנכונה.
+    - טסטים: tests/test_merkle.py, tests/test_bloom_light_wallet.py
+    סטטוס: [PARTIAL] (מומלץ להחליף חישוב ראשוני ל-root אמיתי גם ב-Block.create_header עבור עקביות)
+
+(c) אימות/אי אימות עיסקה בארנק קל (Bloom -> Merkle proof)
+    - קוד: LightWallet.check_tx_in_block
+    - שימוש ב-FullNode.get_merkle_proof + might_contain_tx
+    - טסט: tests/test_bloom_light_wallet.py::test_light_wallet
+    סטטוס: [OK]
+
+(d) 30 עסקאות בקובץ JSON נטענות פעם אחת לאתחול mempool
+    - קובץ: sim/mempool_init.json (nonce 0..29 = 30 עסקאות)
+    - טעינה: cli/main.py::run_simulation (קריאה אחת, חותם ומכניס ל-mempool אם יש מפתח פרטי מתאים)
+    - הערה: חלק מהעסקאות עם sender לא חוקי → מסוננות (תקין להדגמה). לציין במצגת.
+    סטטוס: [OK]
+
+(e) בניית בלוקצ'יין לפי ההנחות (EIP-1559 simplified)
+    i. 300 מטבעות לכל ארנק: sim/init_state.json – כן. [OK]
+    ii. כל בלוק 4 עסקאות בגודל קבוע: הקוד מאפשר "עד 4" (validate_block_structure מגביל ל<=4). [PARTIAL]
+        → שיפור: אכוף בדיוק 4 אלא אם mempool ריק (או לציין כהנחה מקלה).
+    iii. תגמול כרייה 50: hard-coded ב-chain.apply_block. [OK]
+    iv. Base fee 2 נשרף: Tx.base_fee=2 (ברירת מחדל) + total_burned נצבר. [OK]
+    v. Tip 3 לכורה: ברירת מחדל tip=3 אך קיימות עסקאות עם טיפ אחר (1/4). [PARTIAL]
+        → אם נדרש קשיח ל-3, יש לנרמל/לוודא.
+    בדיקת יתרת שולח לפני העברה: יש ב-chain.apply_block וב-mempool.accept. [OK]
+
+(f) קוד שריפת מטבעות
+    - ממומש עקיף: base_fee לא מזוכה לאף אחד, נצבר ב-total_burned.
+    - טסט: tests/test_fees_and_mempool.py::test_apply_block_with_fees
+    סטטוס: [OK]
+
+(g) SegWit (הוצאת חתימה מהבלוק)
+    - בפועל: tx_id מחושב ללא חתימה → מרקל רוט אינו תלוי חתימה. חתימה נשמרת חיצונית: segwit.store_signature ב-chain.apply_block.
+    - אך: אובייקט Block עדיין מכיל Tx כולל signature בשדה (to_dict כולל signature אם קיימת). [PARTIAL]
+      → שיפור: בעת בניית מרקל כבר בסדר; להצגת דרישה נאמר שברמת "ייצוג לוגי" חתימות הופרדו, ולשיפור אפשר להחריג חתימות בסריאליזציה של בלוק או ליצור מבנה Witness נפרד.
+
+(h) הדפסת סיכום מאזן רשת: run_simulation מדפיס יתרות, total_mined, total_burned, total coins.
+    סטטוס: [OK]
+
+(i) לוג הדגמת כרייה ואימות מפורט – לא קיים כקובץ נפרד, אך יש הדפסות ב-run_simulation + mining_log. [PARTIAL]
+
+נושאים חסרים / באגים / נק' לשיפור לפני הגשה
+----------------------------------------------
+1. Merkle root ב-Block.create_header/genesis – שימוש ב-placeholder.
+2. אכיפת בדיוק 4 עסקאות לבלוק (אם הדרישה קשיחה).
+3. טיפ קבוע 3 – חלק מהעסקאות מפרות את ההנחה.
+4. LightWallet: פונקציות generate_keys / create_transaction לא ממומשות (לא קריטי לדרישות, אך יפה להדגמה).
+5. SegWit: חתימות עדיין בתוך אובייקט Tx כשהוא מאוחסן בבלוק – הסבר / או הוצאתן מה-serialization.
+6. Broadcast / P2P לא ממומש (מסומן TODO) – מותר לפי ההנחיות.
+7. הוספת בדיקה שמספר המטבעות = initial + mined - burned (קיים בטסט simulation – טוב להציג שקף).
+
+משימות פעולה (Execution Checklist)
+-----------------------------------
+[מצגת]
+1. יצירת Deck (Google Slides / PPT):
+   - שקף 1: שמות + טבלת סטטוס דרישות (עמודה דרישה, סטטוס, הערות/באג ידוע).
+   - שקף 2: התקנה והרצה (ראה סעיף "הוראות הרצה").
+   - שקפים 3..: לכל סעיף (a–h): כותרת, קטע קוד רלוונטי + הסבר + צילום פלט טסט / CLI.
+   - שקף כרייה: תרשים זרימה (init → load mempool → build candidate → mine → add_block → update balances → store signatures → bloom build).
+   - שקף אימות Light Wallet: Bloom -> (Maybe) -> Merkle Proof -> verify.
+   - שקף SegWit: דיאגרמה "Tx ללא חתימה בתוך הבלוק"; חתימה ב-store חיצוני.
+   - שקף סיכום מספרים סופיים אחרי 5 בלוקים (הרצת סימולציה לדוגמה) + הסבר על שריפה.
+2. צילומי מסך: להריץ pytest -q ולהוסיף צילום מעבר טסטים.
+3. צילומי CLI: הרצת simulate + הוצאת mining_log.
+
+[דמו חי]
+4. הכנת Script דיבור (3–5 דקות):
+   - פתיחה: מה ממומש.
+   - כרייה: הרצת simulate, הסבר עמלות (base fee burn + tip + reward).
+   - הצגת segwit store (להדפיס len(SIGNATURE_STORE)).
+   - אימות עסקה בארנק קל (להראות check_tx_in_block). 
+
+[קוד / שיפורים אחרונים – אופציונלי]
+5. (Optional Critical) להחליף merkle_root דמה בפונקציה אמיתית גם ב-Block.create_header.
+6. (Optional) אכיפת exactly 4 tx/block (אם mempool >=4): בדיקה לפני add_block.
+7. (Optional) נרמול tip=3 בקובץ mempool_init.json לעסקאות שיש בהן ערכים שונים → או לציין במצגת שהרחבתם הדרישה ל-tip דינמי.
+8. (Optional) הוצאת החתימה מ-to_dict של בלוק לצורך שמירה נקייה (או דגל include_signatures=False).
+9. (Optional) מימוש generate_keys / create_transaction ב-LightWallet להשלמה.
+
+[בדיקות]
+10. להריץ: pytest -q (תעד מספר טסטים ירוקים).
+11. להריץ סימולציה: python -m blockchain_lab.cli.main simulate --blocks 5 --miner demo_miner
+12. בדיקת סכימת מאזן: לוודא ידנית: sum(balances)= initial + total_mined - total_burned.
+13. בדיקת מרקל: בחירת tx_id ידוע, הפקת proof דרך node.get_merkle_proof.
+
+הוראות התקנה והרצה (לשקף 2 ולמסמך)
+-----------------------------------
+(בהנחה Python 3.12 מותקן)
+1. יצירת וניליית סביבה וירטואלית:
+   python -m venv .venv
+   .venv\Scripts\activate
+2. התקנת תלויות:
+   pip install -r blockchain_lab/requirements.txt
+3. הרצת בדיקות:
+   pytest -q
+4. הרצת סימולציה (5 בלוקים, כורה demo_miner):
+   python -m blockchain_lab.cli.main simulate --blocks 5 --miner demo_miner
+5. הרצת בדיקת light wallet (לאחר התאמה ידנית ל-tx_id קיים):
+   python -m blockchain_lab.cli.main light-check --tx_id <TX_ID> --block <BLOCK_INDEX>
+6. כרייה חד פעמית (debug):
+   python -m blockchain_lab.cli.main mine-once --miner demo_miner --difficulty 3
+
+הדגמת אימות עסקה (Flow קצר למופע חי)
+-------------------------------------
+1. הרצת סימולציה לייצור בלוקים ועסקאות.
+2. בחירת בלוק אחרון: הדפסת index = len(blocks)-1.
+3. בחירת tx_id מתוך block.txs[0].tx_id.
+4. בדיקת Bloom (node.might_contain_tx(idx, tx_id)).
+5. השגת proof (node.get_merkle_proof(idx, tx_id)).
+6. אימות (verify_proof(block.header.merkle_root, tx_id, proof)).
+7. בדיקת עסקה לא קיימת: יצירת Tx חדשה לא משובצת ובדיקת False.
+
+מדדי סיום להצגת מוכנות
+-----------------------
+- ≥ 95% טסטים ירוקים (כל הטסטים קיימים צריכים לעבור).
+- סימולציה רצה ללא חריגות ומדפיסה Balances + Totals עקביים.
+- מצגת מוכנה כולל צילום פלטים.
+- דמו מוקלט / מתורגל (5 דקות).
+- רשימת Known Bugs נמסרת בשקף 1 (אם לא תוקנו: Merkle placeholder, variable tips, signatures inside block object).
+
+Known Bugs / Observations (להכניס לשקף 1 אם לא יתוקנו)
+-------------------------------------------------------
+1. Merkle root ב-header שנוצר ידנית (create_header) – Placeholder.
+2. טיפ בעסקאות אינו קבוע ל-3 (חלק מהעסקאות בקובץ שונות). 
+3. חתימות עדיין נכללות במבנה Tx בתוך הבלוק (למרות שמזהה העסקה לא תלוי בהן) – SegWit partial.
+4. LightWallet חסר מימוש ליצירת Transaction חדש.
+
+סיכום מצב נוכחי
+---------------
+רוב הדרישות הקריטיות (Bloom, Merkle, אימות ארנק קל, שריפה, תגמולי כרייה, הדפסת סיכום רשת, 30 עסקאות, EIP-1559 בסיסי) – ממומשות. מספר סעיפים חלקיים שניתן להצדיק במצגת או להשלים בזמן קצר (פירוט לעיל).
+
+המלצת עדיפות (אם זמן מוגבל):
+1. לתעד במצגת + שקף Known Bugs.
+2. להכין דמו חלק ויציב.
+3. להריץ ולצלם פלטי בדיקות.
+4. רק אם נשאר זמן – לתקן Merkle placeholder ו/או הסרת חתימות מהבלוק.
+
+בהצלחה!

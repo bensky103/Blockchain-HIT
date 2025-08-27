@@ -2,10 +2,10 @@
 Memory pool for unconfirmed transactions.
 """
 
-from typing import List, Dict, Set
+from typing import List, Dict
 from collections import deque
 from ..core.tx import Tx
-from ..core.fees import calculate_transaction_cost, BASE_FEE, TIP
+from ..core.fees import calculate_transaction_cost
 
 class Mempool:
     """

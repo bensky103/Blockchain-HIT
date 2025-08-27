@@ -2,9 +2,10 @@
 Blockchain implementation.
 """
 
-from typing import List, Dict, Optional, Union, Any
-from .block import Block, BlockHeader
+from typing import List, Dict, Optional, Any
+from .block import Block
 from .tx import Tx
+from blockchain_lab.crypto import segwit
 
 class Blockchain:
     """
@@ -18,7 +19,7 @@ class Blockchain:
         difficulty (int): Mining difficulty.
     """
     
-    def __init__(self, difficulty: int = 4):
+    def __init__(self, difficulty: int = 4, enforce_block_tx_count: Optional[int] = None):
         """
         Initialize a new blockchain.
         
@@ -29,7 +30,10 @@ class Blockchain:
         self.balances: Dict[str, int] = {}
         self.total_burned: int = 0
         self.total_mined: int = 0
+        # Difficulty and optional fixed transaction count enforcement
         self.difficulty: int = difficulty
+        # If set (e.g., 4), enforce that non-empty mined blocks (except genesis) have exactly this many txs
+        self.enforce_block_tx_count: Optional[int] = enforce_block_tx_count
     
     def add_genesis(self, initial_balances: Dict[str, int], miner_address: str = "genesis") -> Block:
         """
@@ -97,9 +101,16 @@ class Blockchain:
             if header.prev_hash != self.blocks[-1].block_hash:
                 return False
         
-        # Verify the block has at most 4 transactions
+        # Verify the block has at most 4 transactions (legacy rule)
         if len(block.txs) > 4:
             return False
+
+        # Optional stricter enforcement: exactly N txs (except genesis or when mempool was smaller)
+        if self.enforce_block_tx_count is not None and header.index > 0:
+            required = self.enforce_block_tx_count
+            # Allow smaller if mempool had fewer (caller responsible to set flag only when assured)
+            if len(block.txs) not in (0, required):
+                return False
                 
         # Basic validation passed
         return True
@@ -109,6 +120,7 @@ class Blockchain:
         Apply a block to the blockchain, including transaction effects and fees.
         
         For each included transaction:
+          - Verify signature using the external store.
           - Deduct amount + BASE_FEE + TIP from sender
           - Add amount to recipient
           - Add TIP to miner
@@ -132,47 +144,58 @@ class Blockchain:
         
         # Track total burned and mined in this block
         block_burned = 0
-        
+
         # Process each transaction in the block
         for tx in block.txs:
-            # Skip invalid transactions
-            if tx.sender not in temp_balances:
-                continue
-                
+            # Verify signature (supports detached store)
+            if not tx.verify_signature():
+                print(f"Invalid signature for tx {tx.tx_id}")
+                return False
+
             # Check sender has enough funds
             sender_balance = temp_balances.get(tx.sender, 0)
             total_cost = tx.amount + tx.base_fee + tx.tip
-            
+
             if sender_balance < total_cost:
-                # Invalid transaction, don't include in block
-                continue
-            
+                print(f"Sender {tx.sender} has insufficient funds for tx {tx.tx_id}")
+                return False
+
             # Deduct amount + fees from sender
             temp_balances[tx.sender] = sender_balance - total_cost
-            
+
             # Credit amount to recipient
             recipient_balance = temp_balances.get(tx.recipient, 0)
             temp_balances[tx.recipient] = recipient_balance + tx.amount
-            
+
             # Credit tip to miner
             miner_balance = temp_balances.get(miner_addr, 0)
             temp_balances[miner_addr] = miner_balance + tx.tip
-            
+
             # Track burned base fees
             block_burned += tx.base_fee
-        
+
         # Apply block reward to miner
         miner_balance = temp_balances.get(miner_addr, 0)
         temp_balances[miner_addr] = miner_balance + 50  # BLOCK_REWARD
-        
+
         # Update blockchain state
         self.balances = temp_balances
         self.total_burned += block_burned
         self.total_mined += 50  # BLOCK_REWARD
+
+        # Populate header accounting fields for downstream consumers (CLI / logs)
+        block.header.block_reward = 50
+        block.header.burned_fees = block_burned
         
         # Add block to chain
         self.blocks.append(block)
         
+        # Store signatures in the external store
+        for tx in block.txs:
+            # Store legacy attached signatures if still present (for backwards compatibility)
+            if tx.signature:
+                segwit.store_signature(tx.tx_id, tx.signature)
+
         return True
         
     def add_block(self, block: Block, miner_addr: str) -> bool:
@@ -244,7 +267,8 @@ class Blockchain:
             "balances": self.balances,
             "total_burned": self.total_burned,
             "total_mined": self.total_mined,
-            "difficulty": self.difficulty
+            "difficulty": self.difficulty,
+            "enforce_block_tx_count": self.enforce_block_tx_count,
         }
     
     @classmethod
@@ -258,7 +282,10 @@ class Blockchain:
         Returns:
             Blockchain: New blockchain instance.
         """
-        blockchain = cls(difficulty=data.get("difficulty", 4))
+        blockchain = cls(
+            difficulty=data.get("difficulty", 4),
+            enforce_block_tx_count=data.get("enforce_block_tx_count")
+        )
         blockchain.blocks = [Block.from_dict(block_data) for block_data in data["blocks"]]
         blockchain.balances = data["balances"]
         blockchain.total_burned = data["total_burned"]

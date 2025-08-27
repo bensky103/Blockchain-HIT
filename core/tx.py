@@ -5,6 +5,7 @@ Transaction implementation for blockchain.
 import json
 import hashlib
 from typing import Optional, Dict, Any
+from blockchain_lab.crypto import keys, signatures, segwit
 
 class Tx:
     """
@@ -17,8 +18,9 @@ class Tx:
         nonce (int): Transaction sequence number for the sender.
         base_fee (int): Base fee for the transaction (EIP-1559 style).
         tip (int): Priority fee/tip for miners (EIP-1559 style).
+        sender_pubkey (Optional[str]): Public key of the sender.
+        signature (Optional[bytes]): Digital signature of the transaction.
         tx_id (str): SHA-256 hash of the canonical JSON representation.
-        signature (Optional[str]): Digital signature of the transaction.
     """
     
     def __init__(
@@ -29,8 +31,10 @@ class Tx:
         nonce: int, 
         base_fee: int = 2, 
         tip: int = 3, 
+        sender_pubkey: Optional[str] = None,
+        signature: Optional[bytes] = None,
         tx_id: Optional[str] = None,
-        signature: Optional[str] = None
+        private_key: Optional[Any] = None
     ):
         """
         Initialize a new Transaction.
@@ -42,8 +46,10 @@ class Tx:
             nonce (int): Transaction sequence number for the sender.
             base_fee (int, optional): Base fee for the transaction. Defaults to 2.
             tip (int, optional): Priority fee/tip for miners. Defaults to 3.
+            sender_pubkey (Optional[str], optional): Public key of the sender.
+            signature (Optional[bytes], optional): Digital signature. Defaults to None.
             tx_id (Optional[str], optional): Transaction ID. If None, will be computed.
-            signature (Optional[str], optional): Digital signature. Defaults to None.
+            private_key (Optional[Any], optional): If provided, sign the transaction.
         """
         self.sender = sender
         self.recipient = recipient
@@ -51,6 +57,7 @@ class Tx:
         self.nonce = nonce
         self.base_fee = base_fee
         self.tip = tip
+        self.sender_pubkey = sender_pubkey
         self.signature = signature
         
         # Generate tx_id if not provided
@@ -58,7 +65,10 @@ class Tx:
             self.tx_id = self._calculate_tx_id()
         else:
             self.tx_id = tx_id
-    
+        
+        if private_key:
+            self.sign(private_key)
+
     def _calculate_tx_id(self) -> str:
         """
         Calculate the deterministic transaction ID.
@@ -66,22 +76,30 @@ class Tx:
         Returns:
             str: SHA-256 hash of the canonical JSON representation.
         """
-        # Create a dictionary excluding the signature
-        tx_dict = self.to_dict(include_signature=False)
+        # Create a dictionary excluding the signature and pubkey
+        tx_dict = self.to_dict(include_signature=False, include_pubkey=False)
         
         # Convert to canonical JSON (sorted keys, no whitespace)
         canonical_json = json.dumps(tx_dict, sort_keys=True, separators=(',', ':'))
         
         # Calculate SHA-256 hash
         return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
-    
-    def to_dict(self, include_signature: bool = True) -> Dict[str, Any]:
+
+    def get_preimage(self) -> bytes:
+        """
+        Get the transaction data to be signed (preimage).
+        """
+        tx_dict = self.to_dict(include_signature=False, include_pubkey=False)
+        canonical_json = json.dumps(tx_dict, sort_keys=True, separators=(',', ':'))
+        return canonical_json.encode('utf-8')
+
+    def to_dict(self, include_signature: bool = True, include_pubkey: bool = True) -> Dict[str, Any]:
         """
         Convert transaction to dictionary.
         
         Args:
             include_signature (bool, optional): Whether to include the signature. 
-                                               Defaults to True.
+            include_pubkey (bool, optional): Whether to include the sender's public key.
         
         Returns:
             Dict[str, Any]: Dictionary representation of the transaction.
@@ -95,9 +113,11 @@ class Tx:
             "tip": self.tip,
         }
         
-        # Only include signature if requested and it exists
+        if include_pubkey and self.sender_pubkey is not None:
+            result["sender_pubkey"] = self.sender_pubkey
+            
         if include_signature and self.signature is not None:
-            result["signature"] = self.signature
+            result["signature"] = self.signature.hex()
             
         return result
     
@@ -121,7 +141,9 @@ class Tx:
         # Extract optional fields with defaults
         base_fee = data.get("base_fee", 2)
         tip = data.get("tip", 3)
-        signature = data.get("signature")
+        sender_pubkey = data.get("sender_pubkey")
+        signature_hex = data.get("signature")
+        signature = bytes.fromhex(signature_hex) if signature_hex else None
         tx_id = data.get("tx_id")
         
         # Create and return new transaction
@@ -132,26 +154,39 @@ class Tx:
             nonce=nonce,
             base_fee=base_fee,
             tip=tip,
-            tx_id=tx_id,
-            signature=signature
+            sender_pubkey=sender_pubkey,
+            signature=signature,
+            tx_id=tx_id
         )
     
-    def sign(self, private_key: str) -> None:
+    def sign(self, private_key, detach: bool = False) -> None:
+        """Sign the transaction with the private key.
+
+        If detach=True, store signature in external segwit store and clear the in-memory
+        signature (full SegWit style separation) so block / mempool objects remain lean.
         """
-        Sign the transaction with the private key.
-        
-        Args:
-            private_key (str): The private key to sign the transaction with.
-        """
-        # TODO: Implement transaction signing
-        pass
+        self.sender_pubkey = keys.serialize_public_key(private_key.public_key())
+        preimage = self.get_preimage()
+        sig = signatures.sign_data(private_key, preimage)
+        if detach:
+            segwit.store_signature(self.tx_id, sig)
+            self.signature = None
+        else:
+            self.signature = sig
     
     def verify_signature(self) -> bool:
+        """Verify the transaction signature.
+
+        Accepts either an attached signature (legacy) or one stored externally
+        in the segwit store keyed by tx_id. Returns False if neither present.
         """
-        Verify the signature of this transaction.
-        
-        Returns:
-            bool: Whether the signature is valid.
-        """
-        # TODO: Implement signature verification
-        pass
+        if not self.sender_pubkey:
+            return False
+        # Prefer attached signature, else fetch from store
+        sig = self.signature or segwit.get_signature(self.tx_id)
+        if not sig:
+            return False
+        public_key = keys.deserialize_public_key(self.sender_pubkey)
+        preimage = self.get_preimage()
+        return signatures.verify_signature(public_key, sig, preimage)
+

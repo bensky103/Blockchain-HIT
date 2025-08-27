@@ -9,6 +9,7 @@ from ..node.light_wallet import LightWallet
 from ..core.tx import Tx
 from ..core.block import Block, BlockHeader
 from ..crypto.merkle import merkle_root
+from ..crypto import keys
 
 def test_bloom_filter():
     """Test the BloomFilter implementation."""
@@ -33,9 +34,12 @@ def test_full_node_bloom():
     node = FullNode()
     
     # Create some test transactions
-    tx1 = Tx("alice", "bob", 10, 1, 2, 3)
-    tx2 = Tx("bob", "charlie", 5, 1, 2, 3)
-    tx3 = Tx("charlie", "alice", 2, 1, 2, 3)
+    priv_key_alice, _ = keys.generate_key_pair()
+    priv_key_bob, _ = keys.generate_key_pair()
+    priv_key_charlie, _ = keys.generate_key_pair()
+    tx1 = Tx("alice", "bob", 10, 1, 2, 3, private_key=priv_key_alice)
+    tx2 = Tx("bob", "charlie", 5, 1, 2, 3, private_key=priv_key_bob)
+    tx3 = Tx("charlie", "alice", 2, 1, 2, 3, private_key=priv_key_charlie)
     
     # Create a test block with these transactions
     txs = [tx1, tx2, tx3]
@@ -61,9 +65,12 @@ def test_light_wallet():
     node = FullNode()
     
     # Create some test transactions
-    tx1 = Tx("alice", "bob", 10, 1, 2, 3)
-    tx2 = Tx("bob", "charlie", 5, 1, 2, 3)
-    tx3 = Tx("charlie", "alice", 2, 1, 2, 3)
+    priv_key_alice, _ = keys.generate_key_pair()
+    priv_key_bob, _ = keys.generate_key_pair()
+    priv_key_charlie, _ = keys.generate_key_pair()
+    tx1 = Tx("alice", "bob", 10, 1, 2, 3, private_key=priv_key_alice)
+    tx2 = Tx("bob", "charlie", 5, 1, 2, 3, private_key=priv_key_bob)
+    tx3 = Tx("charlie", "alice", 2, 1, 2, 3, private_key=priv_key_charlie)
     
     # Create a test block with these transactions
     txs = [tx1, tx2, tx3]
@@ -87,8 +94,5 @@ def test_light_wallet():
     assert wallet.check_tx_in_block(0, fake_tx.tx_id) is False
     
     # Test that the wallet handles non-existent blocks correctly
-    try:
+    with pytest.raises(Exception, match=r"Block with index 999 does not exist"):
         wallet.check_tx_in_block(999, tx1.tx_id)
-        assert False, "Should have raised an exception for non-existent block"
-    except Exception as e:
-        assert "Block with index 999 does not exist" in str(e)

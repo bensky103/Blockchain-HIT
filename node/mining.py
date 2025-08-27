@@ -3,16 +3,14 @@ Mining functionality for blockchain.
 """
 
 import time
-import hashlib
 from typing import List
 from ..core.block import Block, BlockHeader
 from ..core.tx import Tx
-from ..core.fees import BLOCK_REWARD, BASE_FEE, TIP
-from ..node.mempool import Mempool
+from ..core.fees import BLOCK_REWARD, calculate_burned_fees
 from ..crypto.merkle import merkle_root
 
 def build_candidate_block(
-    prev_block: Block, 
+    prev_block: Block,
     miner_address: str,
     mempool_batch: List[Tx]
 ) -> Block:
@@ -27,7 +25,7 @@ def build_candidate_block(
     Returns:
         Block: A candidate block ready for mining.
     """
-    # Calculate the merkle root from the transactions
+    # Calculate the merkle root from the transactions (tx_id already signature-agnostic)
     real_merkle_root = merkle_root(mempool_batch)
     
     # Create block header
@@ -94,14 +92,9 @@ def calculate_mining_reward(txs: List[Tx]) -> int:
     
     return total_reward
 
-def calculate_burned_fees(txs: List[Tx]) -> int:
-    """
-    Calculate the total burned fees from transactions.
-    
-    Args:
-        txs (List[Tx]): Transactions included in the block.
-        
-    Returns:
-        int: Total burned fees.
-    """
-    return sum(tx.base_fee for tx in txs)
+def get_block_accounting(txs: List[Tx]) -> dict:
+    """Convenience helper returning mined reward and burned fees for reporting."""
+    return {
+        "reward": BLOCK_REWARD + sum(tx.tip for tx in txs),
+        "burned": calculate_burned_fees(txs)
+    }

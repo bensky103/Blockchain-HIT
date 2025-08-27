@@ -3,7 +3,7 @@ Merkle tree implementation.
 """
 
 import hashlib
-from typing import List, Tuple, Union
+from typing import List, Tuple
 from ..core.tx import Tx
 
 def _hash_tx_id(tx_id: str) -> str:

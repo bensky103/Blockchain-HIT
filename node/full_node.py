@@ -9,6 +9,8 @@ from ..core.block import Block
 from .mempool import Mempool
 from ..crypto.merkle import merkle_proof, verify_proof
 from ..crypto.bloom import BloomFilter
+from ..crypto.segwit import SIGNATURE_STORE
+from ..core.fees import suggest_tip
 
 class FullNode:
     """
@@ -19,15 +21,17 @@ class FullNode:
         mempool (Mempool): The memory pool for unconfirmed transactions.
         peers (list): List of connected peer nodes.
         block_blooms (Dict[int, BloomFilter]): Bloom filters for finalized blocks.
+        signature_store (Dict[str, str]): In-memory store for transaction signatures.
     """
     
     def __init__(self):
         """Initialize a new full node."""
         self.blockchain = Blockchain()
-        self.mempool = Mempool()
+        self.mempool = Mempool(self.blockchain.balances)
         self.peers = []
         # Dictionary to store Bloom filters for each block indexed by block index
         self.block_blooms: Dict[int, BloomFilter] = {}
+        self.signature_store = SIGNATURE_STORE
     
     def add_peer(self, peer_address):
         """
@@ -47,7 +51,13 @@ class FullNode:
             transaction: The transaction to broadcast.
         """
         # TODO: Implement peer-to-peer communication
-        self.mempool.add_transaction(transaction)
+        self.mempool.accept(transaction)
+        # If transaction was signed with detach=True, ensure signature present in store
+        from ..crypto import segwit
+        if not segwit.get_signature(transaction.tx_id):
+            # Fallback: if signature attached (legacy), store it now
+            if transaction.signature:
+                segwit.store_signature(transaction.tx_id, transaction.signature)
     
     def sync_blockchain(self):
         """
@@ -73,8 +83,12 @@ class FullNode:
             bloom.add(tx.tx_id.encode('utf-8'))
             
         return bloom
+
+    def suggest_tip(self) -> int:
+        """Expose dynamic tip suggestion (proxy to fee heuristic)."""
+        return suggest_tip(self.mempool.size())
     
-    def add_finalized_block(self, block: Block) -> None:
+    def add_finalized_block(self, block: Block) -> bool:
         """
         Add a finalized block to the blockchain and build a Bloom filter for it.
         
@@ -83,19 +97,24 @@ class FullNode:
         """
         # Add block to blockchain (assuming the blockchain.add_block method exists)
         # In a real implementation, you would verify the block first
-        if hasattr(self.blockchain, 'add_block'):
-            # Use the miner_address from the block header as the miner_addr parameter
-            self.blockchain.add_block(block, block.header.miner_address)
-        elif len(self.blockchain.blocks) == 0 and block.header.index == 0:
+        if len(self.blockchain.blocks) == 0 and block.header.index == 0:
             # Genesis block
             self.blockchain.blocks.append(block)
-        else:
-            # Simple append if add_block doesn't exist
-            self.blockchain.blocks.append(block)
+            # Build and store Bloom filter
+            bloom = self.build_bloom_filter(block)
+            self.block_blooms[block.header.index] = bloom
+            return True
+
+        if hasattr(self.blockchain, 'add_block'):
+            # Use the miner_address from the block header as the miner_addr parameter
+            success = self.blockchain.add_block(block, block.header.miner_address)
+            if success:
+                # Build and store Bloom filter
+                bloom = self.build_bloom_filter(block)
+                self.block_blooms[block.header.index] = bloom
+            return success
         
-        # Build and store Bloom filter
-        bloom = self.build_bloom_filter(block)
-        self.block_blooms[block.header.index] = bloom
+        return False
     
     def might_contain_tx(self, block_index: int, tx_id: str) -> bool:
         """
